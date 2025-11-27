@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Museum Kriptografi Klasik</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+    body{margin:0;background:#0f172a;color:#e6eef8;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+    .card{width:980px;max-width:100%;background:linear-gradient(180deg,#0b1220 0%,#071029 100%);box-shadow:0 10px 30px rgba(2,6,23,.6);border-radius:12px;padding:22px}
+    h1{margin:0 0 6px;font-size:20px}
+    p.lead{margin:0 0 18px;color:#a9c0df}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .panel{background:rgba(255,255,255,0.02);padding:14px;border-radius:8px}
+    label{display:block;font-size:13px;margin-bottom:6px;color:#9fb8da}
+    input[type=text], textarea, select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit;font-size:14px}
+    textarea{min-height:120px;resize:vertical}
+    .row{display:flex;gap:8px}
+    button{cursor:pointer;padding:10px 12px;border-radius:8px;border:none;background:#1f6feb;color:white;font-weight:600}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#bcd3f5}
+    .small{font-size:13px;color:#9fb8da}
+    .help{font-size:13px;color:#8aa8d8;margin-top:8px}
+    .cipher-info{font-size:13px;margin-top:12px;color:#cfe3ff}
+    .output{white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.02);padding:10px;border-radius:6px;border:1px dashed rgba(255,255,255,0.04);min-height:70px}
+    footer{margin-top:12px;font-size:12px;color:#88a9d0}
+    .copy-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:6px}
+    @media (max-width:880px){.grid{grid-template-columns:1fr}} 
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Museum Kriptografi Klasik — Web Demo</h1>
+    <p class="lead">Pilih cipher, masukkan plaintext & kunci, lalu tekan Encrypt atau Decrypt. Mencakup Caesar, Vigenère, Playfair, dan Rail Fence.</p>
+
+    <div class="grid">
+      <div class="panel">
+        <label for="cipher">Pilih Cipher</label>
+        <select id="cipher">
+          <option value="caesar">Caesar Cipher (Shift)</option>
+          <option value="vigenere">Vigenère Cipher (Polyalphabetic)</option>
+          <option value="playfair">Playfair Cipher (Digraph)</option>
+          <option value="railfence">Rail Fence (Transposisi)</option>
+        </select>
+
+        <div style="margin-top:12px">
+          <label for="plaintext">Plaintext / Ciphertext</label>
+          <textarea id="plaintext" placeholder="Masukkan teks di sini..."></textarea>
+        </div>
+
+        <div style="margin-top:12px">
+          <label for="key">Kunci (angka untuk Caesar/Rail Fence; kata untuk Vigenère/Playfair)</label>
+          <input id="key" type="text" placeholder="Contoh: 3 atau 'KUNCI'" />
+        </div>
+
+        <div class="row" style="margin-top:12px">
+          <button id="encryptBtn">Encrypt</button>
+          <button id="decryptBtn" class="secondary">Decrypt</button>
+          <button id="swapBtn" class="secondary">Swap</button>
+        </div>
+
+        <div class="help">Tip: Untuk Playfair, huruf 'J' akan dipetakan ke 'I'. Untuk Rail Fence, kunci adalah jumlah 'rails' (garis).</div>
+
+        <div style="margin-top:12px">
+          <label>Hasil</label>
+          <div id="output" class="output"></div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="copyBtn" class="copy-btn">Salin</button>
+            <button id="clearBtn" class="copy-btn">Bersihkan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Ringkasan & Contoh</h3>
+        <div class="cipher-info" id="cipherInfo">
+          <strong>Caesar:</strong> geser huruf berdasarkan angka kunci.<br>
+          <strong>Vigenère:</strong> gunakan kata kunci yang diulang untuk menggeser tiap huruf.<br>
+          <strong>Playfair:</strong> enkripsi pasangan huruf memakai matriks 5x5 (I/J digabung). Huruf yang sama dalam satu digram dipisah dengan 'X'.<br>
+          <strong>Rail Fence:</strong> menulis huruf secara zig-zag menurut jumlah rail lalu baca baris per baris.
+        </div>
+
+        <h4 style="margin-top:12px">Contoh Cepat</h4>
+        <div class="small">
+          Plaintext: <em>HELLO WORLD</em><br>
+          Caesar (k=3) → <em>KHOOR ZRUOG</em><br>
+          Vigenère (k=KEY) → <em>RIJVS UYVJN</em><br>
+          Rail Fence (rails=3) → <em>HOLELWRLD</em>
+        </div>
+
+        <footer>
+          Dibuat untuk tujuan pembelajaran. Anda dapat menyimpan file HTML ini dan membuka di browser.
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // === Utility helpers ===
+  const el = id => document.getElementById(id);
+  const cleanText = t => t.replace(/[^A-Za-z]/g, '');
+
+  // === Caesar Cipher ===
+  function caesarEncrypt(text, shift){
+    shift = ((shift%26)+26)%26;
+    let out = '';
+    for(const ch of text){
+      if(/[A-Z]/.test(ch)){
+        out += String.fromCharCode((ch.charCodeAt(0)-65+shift)%26 + 65);
+      } else if(/[a-z]/.test(ch)){
+        out += String.fromCharCode((ch.charCodeAt(0)-97+shift)%26 + 97);
+      } else out += ch;
+    }
+    return out;
+  }
+  function caesarDecrypt(text, shift){ return caesarEncrypt(text, -shift); }
+
+  // === Vigenere Cipher ===
+  function vigenereProcess(text, key, encrypt=true){
+    if(!key) return text;
+    let out='';
+    key = key.replace(/[^A-Za-z]/g,'');
+    if(key.length===0) return text;
+    let ki=0;
+    for(const ch of text){
+      if(/[A-Za-z]/.test(ch)){
+        const base = ch === ch.toUpperCase()?65:97;
+        const k = (key[ki%key.length].toUpperCase().charCodeAt(0)-65);
+        const shift = encrypt? k : (26-k);
+        out += String.fromCharCode((ch.charCodeAt(0)-base+shift)%26 + base);
+        ki++;
+      } else out += ch;
+    }
+    return out;
+  }
+
+  // === Playfair Cipher ===
+  function buildPlayfairSquare(key){
+    key = key.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+    const seen = new Set();
+    const arr = [];
+    for(const ch of key){ if(!seen.has(ch)){ seen.add(ch); arr.push(ch);} }
+    for(let c=65;c<=90;c++){
+      const ch = String.fromCharCode(c);
+      if(ch==='J') continue; // combine J with I
+      if(!seen.has(ch)){ seen.add(ch); arr.push(ch); }
+    }
+    // make 5x5
+    const matrix = [];
+    for(let r=0;r<5;r++) matrix.push(arr.slice(r*5, r*5+5));
+    return {matrix, index: Object.fromEntries(arr.map((v,i)=>[v, [Math.floor(i/5), i%5]]))};
+  }
+
+  function playfairPrepare(text){
+    text = text.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+    let res='';
+    for(let i=0;i<text.length;i++){
+      const a = text[i];
+      const b = text[i+1] || '';
+      res += a;
+      if(b=='') break;
+      if(a===b){ res += 'X'; }
+      else { res += b; i++; }
+    }
+    if(res.length%2===1) res += 'X';
+    // now split into digrams
+    const pairs = [];
+    for(let i=0;i<res.length;i+=2) pairs.push(res.substr(i,2));
+    return pairs;
+  }
+
+  function playfairEncrypt(plaintext, key){
+    const {matrix, index} = buildPlayfairSquare(key || 'KEY');
+    const pairs = playfairPrepare(plaintext);
+    let out='';
+    for(const p of pairs){
+      const a = p[0], b = p[1];
+      const [ar,ac] = index[a];
+      const [br,bc] = index[b];
+      if(ar===br){ // same row
+        out += matrix[ar][(ac+1)%5] + matrix[br][(bc+1)%5];
+      } else if(ac===bc){ // same col
+        out += matrix[(ar+1)%5][ac] + matrix[(br+1)%5][bc];
+      } else {
+        out += matrix[ar][bc] + matrix[br][ac];
+      }
+    }
+    return out;
+  }
+
+  function playfairDecrypt(ciphertext, key){
+    const {matrix, index} = buildPlayfairSquare(key || 'KEY');
+    const text = ciphertext.toUpperCase().replace(/[^A-Z]/g,'').match(/.{1,2}/g) || [];
+    let out='';
+    for(const p of text){
+      const a = p[0], b = p[1];
+      const [ar,ac] = index[a];
+      const [br,bc] = index[b];
+      if(ar===br){
+        out += matrix[ar][(ac+4)%5] + matrix[br][(bc+4)%5];
+      } else if(ac===bc){
+        out += matrix[(ar+4)%5][ac] + matrix[(br+4)%5][bc];
+      } else {
+        out += matrix[ar][bc] + matrix[br][ac];
+      }
+    }
+    // Note: this simple implementation does not remove padding X automatically because it may be ambiguous.
+    return out;
+  }
+
+  // === Rail Fence ===
+  function railFenceEncrypt(text, rails){
+    rails = Math.max(2, Math.floor(Number(rails)) || 2);
+    const rows = Array.from({length:rails}, ()=>[]);
+    let r=0, dir=1;
+    for(const ch of text){ rows[r].push(ch); r += dir; if(r===rails-1) dir= -1; if(r===0) dir=1; }
+    return rows.map(row=>row.join('')).join('');
+  }
+
+  function railFenceDecrypt(cipher, rails){
+    rails = Math.max(2, Math.floor(Number(rails)) || 2);
+    // create pattern of row indices
+    const n = cipher.length;
+    const pattern=[]; let r=0, dir=1;
+    for(let i=0;i<n;i++){ pattern.push(r); r+=dir; if(r===rails-1) dir=-1; if(r===0) dir=1; }
+    // count per row
+    const counts = Array(rails).fill(0);
+    for(const v of pattern) counts[v]++;
+    // slice cipher into rows
+    const rows=[]; let idx=0;
+    for(let i=0;i<rails;i++){ rows[i] = cipher.slice(idx, idx+counts[i]).split(''); idx+=counts[i]; }
+    // reconstruct by following pattern
+    let out='';
+    const pointers = Array(rails).fill(0);
+    for(const rIdx of pattern){ out += rows[rIdx][pointers[rIdx]++]; }
+    return out;
+  }
+
+  // === UI wiring ===
+  function getInputs(){
+    return {cipher: el('cipher').value, text: el('plaintext').value, key: el('key').value};
+  }
+
+  function setOutput(t){ el('output').textContent = t; }
+
+  el('encryptBtn').addEventListener('click', ()=>{
+    const {cipher, text, key} = getInputs();
+    let res='';
+    try{
+      if(cipher==='caesar'){
+        const k = Number(key);
+        if(Number.isNaN(k)) return setOutput('Kunci Caesar harus angka. Contoh: 3');
+        res = caesarEncrypt(text, k);
+      } else if(cipher==='vigenere'){
+        res = vigenereProcess(text, key, true);
+      } else if(cipher==='playfair'){
+        res = playfairEncrypt(text, key);
+      } else if(cipher==='railfence'){
+        const k = Number(key);
+        if(Number.isNaN(k) || k<2) return setOutput('Kunci Rail Fence harus angka >= 2');
+        res = railFenceEncrypt(text.replace(/\s/g,''), k);
+      }
+      setOutput(res);
+    }catch(e){ setOutput('Error: '+e.message); }
+  });
+
+  el('decryptBtn').addEventListener('click', ()=>{
+    const {cipher, text, key} = getInputs();
+    let res='';
+    try{
+      if(cipher==='caesar'){
+        const k = Number(key);
+        if(Number.isNaN(k)) return setOutput('Kunci Caesar harus angka. Contoh: 3');
+        res = caesarDecrypt(text, k);
+      } else if(cipher==='vigenere'){
+        res = vigenereProcess(text, key, false);
+      } else if(cipher==='playfair'){
+        res = playfairDecrypt(text, key);
+      } else if(cipher==='railfence'){
+        const k = Number(key);
+        if(Number.isNaN(k) || k<2) return setOutput('Kunci Rail Fence harus angka >= 2');
+        res = railFenceDecrypt(text.replace(/\s/g,''), k);
+      }
+      setOutput(res);
+    }catch(e){ setOutput('Error: '+e.message); }
+  });
+
+  el('copyBtn').addEventListener('click', ()=>{
+    const txt = el('output').textContent || '';
+    navigator.clipboard?.writeText(txt).then(()=>alert('Teks disalin ke clipboard')).catch(()=>alert('Tidak bisa menyalin'));
+  });
+  el('clearBtn').addEventListener('click', ()=>{ el('plaintext').value=''; el('key').value=''; setOutput(''); });
+  el('swapBtn').addEventListener('click', ()=>{ const a = el('plaintext').value; el('plaintext').value = el('output').textContent || ''; setOutput(a); });
+
+  // update cipher info dynamically
+  el('cipher').addEventListener('change', (e)=>{
+    const v = e.target.value;
+    const info = {
+      'caesar':'Caesar: geser huruf menurut angka kunci. Kunci format: 3',
+      'vigenere':'Vigenère: kunci kata yang diulang. Kunci contoh: KEY',
+      'playfair':'Playfair: matriks 5x5, huruf J -> I. Kunci contoh: MONARCHY',
+      'railfence':'Rail Fence: transposisi zig-zag. Kunci = jumlah rail (angka).'
+    };
+    el('cipherInfo').textContent = info[v];
+  });
+
+  // default example
+  el('plaintext').value = 'HELLO WORLD';
+  el('key').value = '3';
+  setOutput('');
+  </script>
+</body>
+</html>
